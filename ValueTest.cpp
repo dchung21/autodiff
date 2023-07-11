@@ -4,6 +4,8 @@
 #include <iostream>
 #define ll long long  
 
+#include <queue>
+
 int main() {
     double lower_bound = -100000;
     double upper_bound = 100000;
@@ -19,9 +21,8 @@ int main() {
     Value rand_c_val(rand_c);
     Value rand_d_val(rand_d);
 
-    // 4.32 * (a+b) + c
-    Value addFx = rand_a_val + rand_b_val;
-    Value multFx = (Value(4.32) * addFx) + rand_c_val;
+    //Value addFx = rand_a_val + rand_b_val;
+    //Value multFx = (Value(4.32) * addFx) + rand_c_val;
 
     // OPERATIONS TEST BEGIN
     assert(testAdd(rand_a_val, rand_b_val));
@@ -33,7 +34,7 @@ int main() {
     // COMPARISON TEST BEGIN
     assert(testGreaterThan(rand_a_val, rand_b_val));
     assert(testLessThan(rand_a_val, rand_b_val));
-    assert(testNestedFx(multFx));
+    assert(testNestedFx(rand_a_val, rand_b_val, rand_c_val));
     // END COMPARISON TESTS
     
     assert(testMultiOp(rand_a_val, rand_b_val, rand_c_val, rand_d_val));
@@ -92,13 +93,26 @@ bool testMultiOp(Value<double>& a, Value<double>& b, Value<double>& c, Value<dou
     return res == ( (a.val + b.val) + (c.val / d.val) );
 }
 
-bool testNestedFx(Value<double>& fx) {
-    std::cout << fx.children.size() << std::endl;
-    std::shared_ptr<Operation<double>> opPtr = fx.children[0];
-    const Value<double>* v = opPtr->lhs;
-    const Value<double>* v2 = opPtr->rhs;
-    Value backVal = opPtr->back(*v);
-    std::cout << v->val << " " << v2->val << std::endl;
-    std::cout << backVal.val << std::endl;
+bool testNestedFx(Value<double>& a, Value<double>& b, Value<double>& c) {
+    Value addFx = a + b;
+    Value multFx = (Value(4.32) * addFx) + c;
+    std::vector<std::shared_ptr<Operation<double>>> arr = multFx.children;
+    assert(multFx.children.size() == 2);
+    while (!arr.empty()) {
+        std::shared_ptr<Operation<double>> ptr = arr.back();
+        arr.pop_back();
+        if (ptr->lhs) {
+            for (auto& val : ptr->lhs->children) {
+                arr.push_back(val);
+            }
+        }
+
+        if (ptr->rhs) {
+            for (auto& val : ptr->rhs->children) {
+                arr.push_back(val);
+            }
+        }
+    }
+
     return true;
 }

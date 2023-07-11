@@ -1,28 +1,43 @@
 #include <cmath>
 #include <vector>
 #include <memory>
+#include <queue>
+
+#define ValPtr std::shared_ptr<Value<T>>
 
 template <typename T> class Value;
 
 template<typename T>
 struct Operation
 {
-    const Value<T> *lhs;
-    const Value<T> *rhs;
-    // really shouldn't be ran. Should be pure virtual
+    ValPtr lhs;
+    ValPtr rhs;
     virtual Value<T> back(const Value<T> &x) = 0;
-    Operation(const Value<T> *lhs = nullptr, const Value<T> *rhs = nullptr)
+    virtual std::shared_ptr<Operation<T>> clone() = 0;
+    Operation(ValPtr lhs = nullptr, ValPtr rhs = nullptr)
     {
         this->lhs = lhs;
         this->rhs = rhs;
+    }
+
+    Operation(const Operation& copy) {
+        this->lhs = copy.lhs;
+        this->rhs = copy.rhs;
     }
 };
 
 template<typename T>
 struct Add : Operation<T>
 {
-    Add(const Value<T> *lhs, const Value<T> *rhs) : Operation<T>(lhs, rhs)
+    Add(ValPtr lhs, ValPtr rhs) : Operation<T>(lhs, rhs)
     {
+    }
+    Add(const Add& copy) : Operation<T>(copy.lhs, copy.rhs) 
+    {
+    }
+
+    std::shared_ptr<Operation<T>> clone() {
+        return std::make_shared<Add>(*this);
     }
     Value<T> back(const Value<T> &x) override
     {
@@ -33,8 +48,14 @@ struct Add : Operation<T>
 template<typename T>
 struct Subtract : Operation<T>
 {
-    Subtract(const Value<T> *lhs, const Value<T> *rhs) : Operation<T>(lhs, rhs)
+    Subtract(ValPtr lhs, ValPtr rhs) : Operation<T>(lhs, rhs)
     {
+    }
+    Subtract(const Subtract& copy) : Operation<T>(copy.lhs, copy.rhs)
+    {
+    }
+    std::shared_ptr<Operation<T>> clone() {
+        return std::make_shared<Subtract>(*this);
     }
     Value<T> back(const Value<T> &x) override
     {
@@ -45,8 +66,14 @@ struct Subtract : Operation<T>
 template<typename T>
 struct Multiply : Operation<T>
 {
-    Multiply(const Value<T> *lhs, const Value<T> *rhs) : Operation<T>(lhs, rhs)
+    Multiply(ValPtr lhs, ValPtr rhs) : Operation<T>(lhs, rhs)
     {
+    }
+    Multiply(const Multiply& copy) : Operation<T>(copy.lhs, copy.rhs)
+    {
+    }
+    std::shared_ptr<Operation<T>> clone() {
+        return std::make_shared<Multiply>(*this);
     }
     Value<T> back(const Value<T> &x) override
     {
@@ -89,33 +116,53 @@ public:
         this->val = val;
     }
 
+    Value(const Value& copy) {
+        this->val = copy.val;
+        std::vector<std::shared_ptr<Operation<T>>> copyChildren;
+        for (auto& x : copy.children) {
+            this->children.push_back(x->clone());
+        }
+    }
+
     Value &operator=(const Value &rhs)
     {
         this->val = rhs.val;
-        this->children = rhs.children;
+        this->children.clear();
+        for (auto& x : rhs.children) {
+            this->children.push_back(x->clone());
+        }
         return *this;
     }
 
     Value &operator+=(const Value &rhs)
     {
+        ValPtr _rhs = std::make_shared<Value<T>>(rhs);
+        Value copy(*this);
+        ValPtr self = std::make_shared<Value<T>>(copy);
         this->val += rhs.val;
-        std::shared_ptr<Add<T>> op(new Add<T>(this, &rhs));
+        std::shared_ptr<Add<T>> op = std::make_shared<Add<T>>(Add<T>(self, _rhs));
         this->children.push_back(op);
         return *this;
     }
 
     Value &operator-=(const Value &rhs)
     {
+        ValPtr _rhs = std::make_shared<Value<T>>(rhs);
+        Value copy(*this);
+        ValPtr self = std::make_shared<Value<T>>(copy);
         this->val -= rhs.val;
-        std::shared_ptr<Subtract<T>> op(new Subtract<T>(this, &rhs));
+        std::shared_ptr<Subtract<T>> op(new Subtract<T>(self, _rhs));
         this->children.push_back(op);
         return *this;
     }
 
     Value &operator*=(const Value &rhs)
     {
+        ValPtr _rhs = std::make_shared<Value<T>>(rhs);
+        Value copy(*this);
+        ValPtr self = std::make_shared<Value<T>>(copy);
         this->val *= rhs.val;
-        std::shared_ptr<Multiply<T>> op(new Multiply<T>(this, &rhs));
+        std::shared_ptr<Multiply<T>> op(new Multiply<T>(self, _rhs));
         this->children.push_back(op);
         return *this;
     }
@@ -203,6 +250,33 @@ public:
     inline bool operator>=(const Value &lhs)
     {
         return !(lhs < this->val);
+    }
+
+    Value& back(const Value &target) {
+        // construct DAG 
+        std::queue<Value*> q;
+        for (std::shared_ptr<Operation<T>> &x : this->children) {
+            if (x->lhs == target) 
+                q.push(x->lhs);
+            else if (x->rhs == target)
+                q.push(x->rhs);
+        }
+
+        while (!q.empty()) {
+            Value* fx = q.front();
+            q.pop();
+            // take derivative 
+            fx->back();
+
+            for (std::shared_ptr<Operation<T>>& x : fx->children) {
+                if (x->lhs == target)
+                    q.push(x->lhs);
+                else if (x->rhs == target)
+                    q.push(x->rhs);
+            }
+        }
+
+        return Value(0);
     }
 };
 
