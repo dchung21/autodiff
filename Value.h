@@ -12,7 +12,7 @@ struct Operation
 {
     ValPtr lhs;
     ValPtr rhs;
-    virtual Value<T> back(const Value<T> &x) = 0;
+    virtual void back(T &seed) = 0;
     virtual std::shared_ptr<Operation<T>> clone() = 0;
     Operation(ValPtr lhs = nullptr, ValPtr rhs = nullptr)
     {
@@ -39,9 +39,10 @@ struct Add : Operation<T>
     std::shared_ptr<Operation<T>> clone() {
         return std::make_shared<Add>(*this);
     }
-    Value<T> back(const Value<T> &x) override
+    void back(T &seed) override
     {
-        return (x == *(this->lhs)) + (x == *(this->rhs));
+        this->left->grad += seed;
+        this->right->grad += seed;
     }
 };
 
@@ -57,9 +58,10 @@ struct Subtract : Operation<T>
     std::shared_ptr<Operation<T>> clone() {
         return std::make_shared<Subtract>(*this);
     }
-    Value<T> back(const Value<T> &x) override
+    void back(T &seed) override
     {
-        return (x == *(this->lhs)) - (x == *(this->rhs));
+        this->left->grad += seed;
+        this->right->grad += seed;
     }
 };
 
@@ -75,9 +77,9 @@ struct Multiply : Operation<T>
     std::shared_ptr<Operation<T>> clone() {
         return std::make_shared<Multiply>(*this);
     }
-    Value<T> back(const Value<T> &x) override
+    void back(T &seed) override 
     {
-        return (x == *(this->lhs)) ? *(this->rhs) : *(this->lhs);
+        this->left->grad += this->l
     }
 };
 
@@ -109,6 +111,7 @@ class Value
 {
 public:
     T val;
+    T grad = 0;
     std::vector<std::shared_ptr<Operation<T>>> children;
 
     Value(T val)
