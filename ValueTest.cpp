@@ -21,10 +21,14 @@ int main() {
     Value rand_c_val(rand_c);
     Value rand_d_val(rand_d);
 
-    //Value addFx = rand_a_val + rand_b_val;
-    //Value multFx = (Value(4.32) * addFx) + rand_c_val;
+    printf("a=%f, b=%f, c=%f, d=%f\n", rand_a, rand_b, rand_c, rand_d);
+    Value addFx = rand_a_val + rand_b_val;
+    Value multFx = (Value(4.32) * addFx) + rand_c_val;
+    printf("addFx=%f, multFx=%f\n", addFx.val(), multFx.val());
+
 
     // OPERATIONS TEST BEGIN
+    
     assert(testAdd(rand_a_val, rand_b_val));
     assert(testSubtract(rand_a_val, rand_b_val));
     assert(testMult(rand_a_val, rand_b_val));
@@ -34,10 +38,10 @@ int main() {
     // COMPARISON TEST BEGIN
     assert(testGreaterThan(rand_a_val, rand_b_val));
     assert(testLessThan(rand_a_val, rand_b_val));
-    assert(testNestedFx(rand_a_val, rand_b_val, rand_c_val));
     // END COMPARISON TESTS
-    
+     
     assert(testMultiOp(rand_a_val, rand_b_val, rand_c_val, rand_d_val));
+    assert(gradTest(rand_a_val, rand_b_val, rand_c_val));
     std::cout << "Value: Test cases passed" << std::endl;
 }
 
@@ -51,28 +55,28 @@ bool testInitialize() {
     Value valC(c);
     Value valD(d);
     
-    return valA.val == a && valB.val == b &&
-           valC.val == c && valD.val == d;
+    return valA.val() == a && valB.val() == b &&
+           valC.val() == c && valD.val() == d;
 }
 
 bool testAdd(Value<double>& lhs, Value<double>& rhs) {
     Value sum = lhs + rhs;
-    return sum.val == (lhs.val + rhs.val);
+    return sum.val() == (lhs.val() + rhs.val());
 }
 
 bool testSubtract(Value<double>& lhs, Value<double>& rhs) {
     Value diff = lhs - rhs;
-    return diff.val == (lhs.val - rhs.val);
+    return diff.val() == (lhs.val() - rhs.val());
 }
 
 bool testMult(Value<double>& lhs, Value<double>& rhs) {
     Value prod = lhs * rhs;
-    return prod.val == (lhs.val * rhs.val);
+    return prod.val() == (lhs.val() * rhs.val());
 }
 
 bool testDivide(Value<double>& lhs, Value<double>& rhs) {
     Value quot = lhs / rhs;
-    return quot.val == (lhs.val / rhs.val);
+    return quot.val() == (lhs.val() / rhs.val());
 }
 
 
@@ -81,38 +85,29 @@ bool testEqual(Value<double>& lhs, Value<double>& rhs) {
 }
 
 bool testGreaterThan(Value<double>& lhs, Value<double>& rhs) {
-    return (lhs > rhs) == (lhs.val > rhs.val);
+    return (lhs > rhs) == (lhs.val() > rhs.val());
 }
 
 bool testLessThan(Value<double>& lhs, Value<double>& rhs) {
-    return (lhs < rhs) == (lhs.val < rhs.val); 
+    return (lhs < rhs) == (lhs.val() < rhs.val()); 
 }
 
 bool testMultiOp(Value<double>& a, Value<double>& b, Value<double>& c, Value<double>& d) {
-    Value res = a + b + (c / d);
-    return res == ( (a.val + b.val) + (c.val / d.val) );
+    Value res = a + b + (c * d);
+    printf("yep cock\n");
+    return res == ( (a.val() + b.val()) + (c.val() * d.val()) );
 }
 
-bool testNestedFx(Value<double>& a, Value<double>& b, Value<double>& c) {
-    Value addFx = a + b;
-    Value multFx = (Value(4.32) * addFx) + c;
-    std::vector<std::shared_ptr<Operation<double>>> arr = multFx.children;
-    assert(multFx.children.size() == 2);
-    while (!arr.empty()) {
-        std::shared_ptr<Operation<double>> ptr = arr.back();
-        arr.pop_back();
-        if (ptr->lhs) {
-            for (auto& val : ptr->lhs->children) {
-                arr.push_back(val);
-            }
-        }
+bool gradTest(Value <double>& a, Value<double>& b, Value<double>& c) {
+    printf("a=%f, b=%f, c=%f\n", a.val(), b.val(), c.val());
+    Value addFx = a+b;
+    Value z(4.32);
+    Value multFx = (z * addFx) + c;
 
-        if (ptr->rhs) {
-            for (auto& val : ptr->rhs->children) {
-                arr.push_back(val);
-            }
-        }
-    }
-
+    double seed = 1.0f;
+    multFx.back(seed);
+    std::cout << "df/da= " << a.grad() << std::endl;
+    std::cout << "df/db= " << b.grad() << std::endl;
+    std::cout << "df/dc= " << c.grad() << std::endl;
     return true;
 }
