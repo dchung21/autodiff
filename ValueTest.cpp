@@ -42,6 +42,7 @@ int main() {
      
     assert(testMultiOp(rand_a_val, rand_b_val, rand_c_val, rand_d_val));
     assert(gradTest(rand_a_val, rand_b_val, rand_c_val));
+    assert(powerTest());
     std::cout << "Value: Test cases passed" << std::endl;
 }
 
@@ -109,5 +110,24 @@ bool gradTest(Value <double>& a, Value<double>& b, Value<double>& c) {
     std::cout << "df/da= " << a.grad() << std::endl;
     std::cout << "df/db= " << b.grad() << std::endl;
     std::cout << "df/dc= " << c.grad() << std::endl;
+    return true;
+}
+
+bool powerTest() {
+    Value a(15.0);
+    Value a1(32.0);
+    Value a2(31.0);
+    Value a3(11.0);
+    Value b(20.0);
+    Value v1 = (a-b).pow(2.0);
+    Value v2 = (a1-b).pow(2.0);
+    Value v3 = (a2-b).pow(2.0);
+    Value d(0.0);
+    d += v1;
+    d += v2;
+    d += v3;
+    double seed = 1.0;
+    d.back(seed);
+    std::cout << a.grad() << std::endl;
     return true;
 }

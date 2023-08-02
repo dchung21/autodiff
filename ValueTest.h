@@ -11,3 +11,4 @@ bool testLessThan(Value<double>& lhs, Value<double>& rhs);
 bool testMultiOp(Value<double>& a, Value<double>& b, Value<double>& c, Value<double>& d);
 bool testNestedFx(Value<double>& a, Value<double>& b, Value<double>& c);
 bool gradTest(Value <double>& a, Value<double>& b, Value<double>& c);
+bool powerTest();

@@ -45,6 +45,9 @@ struct Add : Operation<T>
         this->lhs->data->grad += seed;
         this->rhs->data->grad += seed;
     }
+    void debug() {
+        printf("%Lf + %Lf\n", this->lhs->val(), this->rhs->val());
+    }
 };
 
 template <typename T>
@@ -59,7 +62,10 @@ struct Subtract : Operation<T>
     void back(T &seed) override
     {
         this->lhs->data->grad += seed;
-        this->rhs->data->grad += seed;
+        this->rhs->data->grad += -seed;
+    }
+    void debug() {
+        printf("%Lf - %Lf\n", this->lhs->val(), this->rhs->val());
     }
 };
 
@@ -79,26 +85,26 @@ struct Multiply : Operation<T>
         this->lhs->data->grad += this->rhs->data->val * seed;
         this->rhs->data->grad += this->lhs->data->val * seed;
     }
+    void debug() {
+        printf("%Lf * %Lf\n", this->lhs->val(), this->rhs->val());
+    }
 };
 
 template <typename T>
 struct Pow : Operation<T>
 {
-    float k;
-    Value<T> *_k;
-
-    Pow(float k)
+    Pow(ValPtr lhs, ValPtr rhs) : Operation<T>(lhs, rhs) {}
+    Pow(const Pow &copy) : Operation<T>(copy.lhs, copy.rhs) {}
+    std::shared_ptr<Operation<T>> clone()
     {
-        this->k = k;
-        _k = new Value<T>(k);
+        return std::make_shared<Pow>(*this);
     }
-    ~Pow()
+    void back(T &seed) override
     {
-        delete _k;
+        this->lhs->data->grad += (this->rhs->data->val * std::pow(this->lhs->data->val, this->rhs->data->val-1)) * seed;
     }
-    Value<T> back(Value<T> &x) override
-    {
-        return *(_k)*x.pow(k - 1);
+    void debug() {
+        printf("%Lf ^ %Lf\n", this->lhs->val(), this->rhs->val());
     }
 };
 
@@ -126,6 +132,13 @@ public:
     friend struct Add<T>;
     friend struct Subtract<T>;
     friend struct Multiply<T>;
+    friend struct Pow<T>;
+
+    Value()
+    {
+        this->data = std::make_shared<Data>();
+        this->data->val = 0;
+    }
 
     Value(T val)
     {
@@ -153,6 +166,7 @@ public:
     {
         this->data = data;
     }
+
     T val()
     {
         return this->data->val;
@@ -165,7 +179,7 @@ public:
     {
         if (this == &rhs)
             return *this;
-        this->val() = rhs->val();
+        this->data->val = rhs.data->val;
         this->children.clear();
         for (auto &x : rhs.children)
         {
@@ -176,7 +190,7 @@ public:
     Value &operator+=(Value &rhs)
     {
         ValPtr _rhs = std::make_shared<Value>(rhs, false);
-        ValPtr _lhs = std::make_shared<Value>(*this);
+        ValPtr _lhs = std::make_shared<Value>(*this, true);
         std::shared_ptr<Add<T>> op = std::make_shared<Add<T>>(_lhs, _rhs);
         this->data->val += rhs.data->val;
         this->children.push_back(op);
@@ -218,8 +232,7 @@ public:
     {
         Value _rhs(std::move(rhs.data));
         _rhs.children = std::move(rhs.children);
-        lhs += _rhs;
-        return lhs;
+        return lhs + _rhs;
     }
     friend Value operator-(Value lhs, Value &rhs)
     {
@@ -257,27 +270,19 @@ public:
         lhs *= _rhs;
         return lhs;
     }
-    // only support float values for now
-    inline Value &pow(float k)
+
+    Value pow(long double k)
     {
-        this->val() = std::pow(this->val(), k);
-        return *this;
+        ValPtr _rhs = std::make_shared<Value>(k);
+        ValPtr _lhs = std::make_shared<Value>(*this, true);
+        //printf("%Lf and %Lf\n", _rhs->data->val, _lhs->data->val);
+        Value res(std::pow(this->data->val, k));
+        //printf("cock %Lf\n", res.data->val);
+        std::shared_ptr<Pow<T>> op = std::make_shared<Pow<T>>(_lhs, _rhs);
+        res.children.push_back(op);
+        return res;
     }
-    inline Value &pow(double k)
-    {
-        this->val() = std::pow(this->val(), k);
-        return *this;
-    }
-    inline Value &pow(int k)
-    {
-        this->val() = std::pow(this->val(), k);
-        return *this;
-    }
-    inline Value &pow(long double k)
-    {
-        this->val() = std::pow(this->val(), k);
-        return *this;
-    }
+
     inline bool operator==(const Value &rhs) const
     {
         return this->data->val == rhs.data->val;
@@ -308,23 +313,44 @@ public:
         {
             return;
         }
-
         OpPtr op = this->children.back();
         op->back(seed);
         const ValPtr lhs = op->lhs;
         const ValPtr rhs = op->rhs;
+
         if (lhs)
         {
-            printf("Grad: %f at %f\n", lhs->val(), lhs->grad());
             seed = lhs->grad();
             lhs->back(seed);
         }
 
         if (rhs)
         {
-            printf("Grad: %f at %f\n", rhs->val(), rhs->grad());
             seed = rhs->grad();
             rhs->back(seed);
+        }
+    }
+
+    void setVal(T val) {
+        this->data->val = val;
+    }
+
+    // Zero out all gradients
+    void zero_grad() {
+        this->data->grad = 0;
+        if (this->children.empty()) {
+            return;
+        }
+        OpPtr op = this->children.back();
+        const ValPtr lhs = op->lhs;
+        const ValPtr rhs = op->rhs;
+
+        if (lhs) {
+            lhs->zero_grad();
+        }
+
+        if (rhs) {
+            rhs->zero_grad();
         }
     }
 };
