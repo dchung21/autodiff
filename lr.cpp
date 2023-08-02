@@ -16,7 +16,7 @@ Value<ld> loss(std::vector<ldVal>& y, std::vector<ldVal> yhat)
     int N = y.size();
     for (int i = 0; i < N; i++)
     {
-        ldVal term = (y[i] - yhat[i]).pow(2);
+        ldVal term = (y[i] - yhat[i]).pow(2.0f);
         _loss += term;
     }
     return _loss;
@@ -46,8 +46,7 @@ int main()
 
     std::vector<ldVal> X;
     std::vector<ldVal> Y;
-
-    /*
+    
     std::string line;
     while (getline(inputFile, line))
     {
@@ -71,36 +70,27 @@ int main()
     }
 
     inputFile.close();
-    */
-    ldVal b0(2.0);
-    ldVal b1(4.0);
-    ldVal a(12.0);
-    ldVal b(2.0);
-    ldVal c(3.0);
-    ldVal y1 = (32.0);
-    ldVal y2 = (13.0);
-    ldVal y3 = (26.0);
-    //Y = {y1, y2, y3};
-    //X = {a, b, c};
-    Y = {y1};
-    X = {a};
+   
+    
+    ldVal b0(2.0f);
+    ldVal b1(4.0f);
     std::vector<ldVal> ypred = pred(X, b0, b1);
     ldVal sse = loss(Y, ypred);
     ld seed0 = 1.0f;
-    sse.back(seed0);
-    printf("Loss: %Lf\n", sse.val());
-    
-    
-    
-    for (int i = 0; i < 100; i++) {
+    ld _sse = sse.val();
+
+    for (int i = 0; i < 1000; i++) {
         ld seed = 1.0f;
         ypred = pred(X, b0, b1);
         sse = loss(Y, ypred);
+        sse.zero_grad();
         sse.back(seed);
-        std::cout << b0.grad() << " " << b1.grad() << std::endl;
+        if (sse.val() > _sse)
+            break;
+        _sse = sse.val();
         b0.setVal(b0.val() - (0.0001 * b0.grad()));
         b1.setVal(b1.val() - (0.0001 * b1.grad()));
     }
-    printf("Loss: %Lf\n", sse.val());
+    printf("Loss: %Lf\n", _sse);
     
 }
